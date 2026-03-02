@@ -91,5 +91,4 @@ export class PriceProcessor extends WorkerHost {
       }
     }
   }
-
 }

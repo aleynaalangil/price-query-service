@@ -1,11 +1,14 @@
 # Coin Price Query Service
 
-A NestJS service for a local technical exercise that provides current and historical cryptocurrency prices, with request batching and threshold-driven fetching.
+A NestJS service for a local technical exercise that provides current and historical cryptocurrency prices, with request
+batching and threshold-driven fetching.
 
 ## Key Features
 
-- **Request Batching:** Groups multiple requests for the same asset within a configurable time window (default 5s) to minimize API calls.
-- **Threshold Triggering:** Executes a fetch immediately once a certain number of concurrent requests (default 3) is reached.
+- **Request Batching:** Groups multiple requests for the same asset within a configurable time window (default 5s) to
+  minimize API calls.
+- **Threshold Triggering:** Executes a fetch immediately once a certain number of concurrent requests (default 3) is
+  reached.
 - **Data Persistence:** Stores price records in PostgreSQL for historical querying.
 
 ## API Endpoints
@@ -20,7 +23,7 @@ A NestJS service for a local technical exercise that provides current and histor
 
 ```bash
 npm install
-npm run start:dev
+npm run start:prod
 ```
 
 ### Docker
@@ -32,10 +35,8 @@ docker-compose up --build
 ## Testing
 
 ```bash
-# Unit tests
 npm run test
 
-# E2E tests (lightweight integration checks, no separate server required)
 npm run test:e2e
 ```
 
@@ -46,17 +47,11 @@ The unit tests cover the batching rules directly:
 - 3 pending requests for the same coin trigger an immediate fetch
 - different coins stay isolated from each other
 
-The `test:e2e` script runs lightweight integration checks against compiled Nest testing modules, so it does not require a running `localhost:3000` server.
+The `test:e2e` script runs lightweight integration checks against compiled Nest testing modules.
 
 ### Manual Localhost Check
 
-If you want to hit the real Dockerized service on `localhost:3000`, start the app first:
-
-```bash
-docker-compose up --build
-```
-
-Then run the batching check script from the project root:
+To hit the real dockerized service run the batching check script from the project root:
 
 ```bash
 python3 scripts/check_local_batching.py
