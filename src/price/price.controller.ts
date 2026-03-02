@@ -5,11 +5,15 @@ import {
   PriceHistoryResponseDto,
   PriceResponseDto,
 } from './dto/price-response.dto';
+import { PriceQueueService } from './price-queue.service';
 
 @ApiTags('v1/price')
 @Controller('v1/price')
 export class PriceController {
-  constructor(private readonly priceService: PriceService) {}
+  constructor(
+    private readonly priceService: PriceService,
+    private readonly priceQueue: PriceQueueService,
+  ) {}
 
   @Get(':coinId')
   @ApiOperation({ summary: 'Get current price of a crypto asset' })
@@ -19,7 +23,7 @@ export class PriceController {
     type: PriceResponseDto,
   })
   async getPrice(@Param('coinId') coinId: string): Promise<PriceResponseDto> {
-    const price = await this.priceService.getPrice(coinId);
+    const price = await this.priceQueue.getPrice(coinId);
     return { coinId, price, currency: 'usd', timestamp: new Date() };
   }
 

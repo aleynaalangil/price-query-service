@@ -1,5 +1,5 @@
 export interface IPriceProvider {
-  fetchPrice(coinId: string): Promise<number>;
+  fetchPrices(coinId: string[]): Promise<Record<string, number>>;
 }
 
 export const IPriceProvider = Symbol('IPriceProvider');

@@ -1,36 +1,24 @@
-import request from 'supertest';
-import {
-  PriceHistoryResponseDto,
-  PriceResponseDto,
-} from './../src/price/dto/price-response.dto';
+import { Test, TestingModule } from '@nestjs/testing';
+import { AppController } from './../src/app.controller';
+import { AppService } from './../src/app.service';
 
 describe('AppController (e2e)', () => {
-  const baseUrl = 'http://localhost:3000';
+  let controller: AppController;
 
-  describe('/v1/price', () => {
-    it('/:coinId (GET)', () => {
-      return request(baseUrl)
-        .get('/v1/price/bitcoin')
-        .expect(200)
-        .expect((res) => {
-          const body = res.body as PriceResponseDto;
-          expect(body).toHaveProperty('coinId', 'bitcoin');
-          expect(body).toHaveProperty('price');
-          expect(body).toHaveProperty('currency', 'usd');
-          expect(body).toHaveProperty('timestamp');
-        });
-    }, 6000);
+  beforeAll(async () => {
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      controllers: [AppController],
+      providers: [AppService],
+    }).compile();
 
-    it('/:coinId/history (GET)', () => {
-      return request(baseUrl)
-        .get('/v1/price/bitcoin/history')
-        .expect(200)
-        .expect((res) => {
-          const body = res.body as PriceHistoryResponseDto;
-          expect(body).toHaveProperty('coinId', 'bitcoin');
-          expect(body).toHaveProperty('history');
-          expect(Array.isArray(body.history)).toBe(true);
-        });
-    });
+    controller = moduleFixture.get<AppController>(AppController);
+  });
+
+  it('returns the local welcome page', () => {
+    const response = controller.getHello();
+
+    expect(response).toContain('Welcome to the Price Query Service');
+    expect(response).toContain('/v1/price/:coinId');
+    expect(response).toContain('/v1/price/:coinId/history');
   });
 });

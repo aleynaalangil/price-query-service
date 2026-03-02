@@ -17,11 +17,13 @@ export class CoinGeckoProvider implements IPriceProvider {
 
   constructor(private configService: ConfigService) {}
 
-  async fetchPrice(coinId: string): Promise<number> {
+  async fetchPrices(coinIds: string[]): Promise<Record<string, number>> {
     const apiKey = this.configService.get<string>('COINGECKO_API_KEY');
-    this.logger.log(`Fetching price for ${coinId} from CoinGecko`);
+    const ids = coinIds.join(',');
+    this.logger.debug(`Fetching prices for ${ids}`);
+    this.logger.log(`Fetching price for ${ids} from CoinGecko`);
 
-    const url = `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${coinId}`;
+    const url = `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${ids}`;
 
     try {
       const response = await fetch(url, {
@@ -37,13 +39,19 @@ export class CoinGeckoProvider implements IPriceProvider {
       }
       const data = (await response.json()) as CoinGeckoMarketResponse[];
 
-      if (!Array.isArray(data) || data.length === 0) {
-        throw new Error(`CoinId "${coinId}" not found in CoinGecko response`);
+      if (!Array.isArray(data) || data.length !== coinIds.length) {
+        throw new Error(`Some ids are not found in CoinGecko response`);
       }
 
-      return data[0].current_price;
+      return data.reduce(
+        (acc, coin) => ({
+          ...acc,
+          [coin.id]: coin.current_price,
+        }),
+        {},
+      );
     } catch (error) {
-      this.logger.error(`Error fetching price for ${coinId}: ${error}`);
+      this.logger.error(`Error fetching price for ${ids}: ${error}`);
       throw error;
     }
   }

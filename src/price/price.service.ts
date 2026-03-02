@@ -1,6 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PriceRecord } from '../entities/price-record.entity';
-import { PriceQueueService } from './price-queue.service';
 import { IPriceProvider } from './interfaces/price-provider.interface';
 import { PriceRepository } from './price.repository';
 
@@ -10,17 +9,18 @@ export class PriceService {
 
   constructor(
     private readonly priceRepository: PriceRepository,
-    private readonly priceQueueService: PriceQueueService,
     @Inject(IPriceProvider)
     private readonly priceProvider: IPriceProvider,
   ) {}
 
-  async getPrice(coinId: string): Promise<number> {
-    return this.priceQueueService.getPrice(coinId, async (id) => {
-      const price = await this.priceProvider.fetchPrice(id);
+  async fetchAndSaveBatch(coinIds: string[]): Promise<Record<string, number>> {
+    const uniqueIds = [...new Set(coinIds)];
+    this.logger.log(`Fetching unique ids ${uniqueIds.length} items`);
+    const results = await this.priceProvider.fetchPrices(uniqueIds);
+    for (const [id, price] of Object.entries(results)) {
       await this.priceRepository.savePrice(id, price);
-      return price;
-    });
+    }
+    return results;
   }
 
   async findHistory(coinId: string): Promise<PriceRecord[]> {

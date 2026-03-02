@@ -16,6 +16,17 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+  redis:
+    image: redis:7-alpine
+    container_name: nest_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   api:
     build:
@@ -31,8 +42,13 @@ services:
       DATABASE_USER: aley
       DATABASE_PASSWORD: supersecretpassword
       DATABASE_NAME: nest_db
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
 volumes:
   postgres_data:
