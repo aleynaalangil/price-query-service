@@ -23,9 +23,11 @@ describe('PriceProcessor', () => {
     jest.useFakeTimers();
 
     mockEventEmitter = {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       emit: jest.fn(),
     };
     mockPriceService = {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       fetchAndSaveBatch: jest.fn(),
     };
 

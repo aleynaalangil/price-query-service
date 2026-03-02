@@ -1,13 +1,21 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Controller, Get, Param, UseGuards } from '@nestjs/common';
 import { PriceService } from './price.service';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import {
   PriceHistoryResponseDto,
   PriceResponseDto,
 } from './dto/price-response.dto';
 import { PriceQueueService } from './price-queue.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @ApiTags('v1/price')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @Controller('v1/price')
 export class PriceController {
   constructor(

@@ -15,7 +15,7 @@ type PendingBatch = {
 
 @Processor('price-queries')
 export class PriceProcessor extends WorkerHost {
-  private logger = new Logger('PriceProcessor');
+  private logger = new Logger(PriceProcessor.name);
   private readonly pendingBatches = new Map<string, PendingBatch>();
   private readonly waitWindowMs = 5000;
   private readonly threshold = 3;

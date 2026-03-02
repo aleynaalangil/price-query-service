@@ -3,10 +3,6 @@ import { PriceController } from '../src/price/price.controller';
 import { PriceService } from '../src/price/price.service';
 import { PriceQueueService } from '../src/price/price-queue.service';
 import { PriceRecord } from '../src/entities/price-record.entity';
-import {
-  PriceHistoryResponseDto,
-  PriceResponseDto,
-} from '../src/price/dto/price-response.dto';
 
 describe('Price API (e2e)', () => {
   let controller: PriceController;
@@ -40,7 +36,7 @@ describe('Price API (e2e)', () => {
   it('returns the current price payload', async () => {
     priceQueueService.getPrice.mockResolvedValue(50000);
 
-    const body = (await controller.getPrice('bitcoin')) as PriceResponseDto;
+    const body = await controller.getPrice('bitcoin');
     expect(body).toMatchObject({
       coinId: 'bitcoin',
       price: 50000,
@@ -61,9 +57,7 @@ describe('Price API (e2e)', () => {
     ];
     priceService.findHistory.mockResolvedValue(history);
 
-    const body = (await controller.getHistory(
-      'bitcoin',
-    )) as PriceHistoryResponseDto;
+    const body = await controller.getHistory('bitcoin');
     expect(body.coinId).toBe('bitcoin');
     expect(body.history).toHaveLength(1);
     expect(priceService.findHistory).toHaveBeenCalledWith('bitcoin');
