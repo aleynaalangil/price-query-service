@@ -63,7 +63,7 @@ docker-compose up --build
 - Unit tests live in `src/price/tests/*.spec.ts`
 - PriceProcessor tests use `jest.useFakeTimers()` to control batching timeouts
 - E2E tests in `test/*.e2e-spec.ts` mock services and test HTTP response shapes via supertest
-- `scripts/check_local_batching.py` — manual integration test against running Docker stack
+- `scripts/check_local_batching.ts` — manual integration test against running Docker stack
 
 ## License
 
