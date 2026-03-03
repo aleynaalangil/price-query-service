@@ -9,11 +9,12 @@ import { CoinGeckoProvider } from './providers/coingecko.provider';
 import { PriceRepository } from './price.repository';
 import { PriceProcessor } from './price-processor.service';
 import { BullModule } from '@nestjs/bullmq';
+import { PRICE_QUEUE_NAME } from './constants';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([PriceRecord]),
-    BullModule.registerQueue({ name: 'price-queries' }),
+    BullModule.registerQueue({ name: PRICE_QUEUE_NAME }),
   ],
   providers: [
     PriceService,

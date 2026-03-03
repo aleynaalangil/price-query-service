@@ -6,7 +6,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getQueueToken } from '@nestjs/bullmq';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { uuid } from 'uuidv4';
+import { PRICE_QUEUE_NAME } from '../constants';
 import { PriceQueueService } from '../price-queue.service';
+import { BatchTimeoutException } from '../../common/exceptions/batch-timeout.exception';
 
 describe('PriceQueueService', () => {
   let service: PriceQueueService;
@@ -25,7 +27,7 @@ describe('PriceQueueService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PriceQueueService,
-        { provide: getQueueToken('price-queries'), useValue: mockQueue },
+        { provide: getQueueToken(PRICE_QUEUE_NAME), useValue: mockQueue },
         { provide: EventEmitter2, useValue: eventEmitter },
       ],
     }).compile();
@@ -97,5 +99,67 @@ describe('PriceQueueService', () => {
 
     await expect(secondResult).resolves.toBe(2500);
     await expect(firstResult).resolves.toBe(50000);
+  });
+
+  it('rejects when the event emits an Error object', async () => {
+    mockUuid.mockReturnValue('request-err');
+
+    const resultPromise = service.getPrice('bitcoin');
+
+    await Promise.resolve();
+    eventEmitter.emit('price.result.request-err', new Error('Price not found'));
+
+    await expect(resultPromise).rejects.toThrow('Price not found');
+  });
+
+  it('rejects with BatchTimeoutException after 30 seconds', async () => {
+    jest.useFakeTimers();
+    mockUuid.mockReturnValue('request-timeout');
+
+    const resultPromise = service.getPrice('bitcoin');
+
+    // Flush the microtask queue so the awaited priceQueue.add() resolves
+    // and the setTimeout inside getPrice is registered
+    await Promise.resolve();
+    await Promise.resolve();
+
+    jest.advanceTimersByTime(30000);
+
+    await expect(resultPromise).rejects.toBeInstanceOf(BatchTimeoutException);
+
+    jest.useRealTimers();
+  });
+
+  it('cleans up event listener after successful resolve', async () => {
+    mockUuid.mockReturnValue('request-cleanup');
+
+    const resultPromise = service.getPrice('bitcoin');
+
+    await Promise.resolve();
+    eventEmitter.emit('price.result.request-cleanup', 50000);
+
+    await resultPromise;
+    expect(eventEmitter.listenerCount('price.result.request-cleanup')).toBe(0);
+  });
+
+  it('cleans up event listener after timeout', async () => {
+    jest.useFakeTimers();
+    mockUuid.mockReturnValue('request-cleanup-timeout');
+
+    const resultPromise = service.getPrice('bitcoin');
+
+    // Flush the microtask queue so the awaited priceQueue.add() resolves
+    // and the setTimeout inside getPrice is registered
+    await Promise.resolve();
+    await Promise.resolve();
+
+    jest.advanceTimersByTime(30000);
+
+    await expect(resultPromise).rejects.toThrow();
+    expect(
+      eventEmitter.listenerCount('price.result.request-cleanup-timeout'),
+    ).toBe(0);
+
+    jest.useRealTimers();
   });
 });

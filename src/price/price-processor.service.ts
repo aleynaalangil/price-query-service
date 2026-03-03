@@ -1,8 +1,11 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Job } from 'bullmq';
+import { PRICE_QUEUE_NAME } from './constants';
 import { PriceService } from './price.service';
 import { Logger } from '@nestjs/common';
+import { PriceNotFoundException } from '../common/exceptions/price-not-found.exception';
+import { ProviderUnavailableException } from '../common/exceptions/provider-unavailable.exception';
 
 type PendingRequest = {
   requestId: string;
@@ -13,7 +16,7 @@ type PendingBatch = {
   timeout: NodeJS.Timeout;
 };
 
-@Processor('price-queries')
+@Processor(PRICE_QUEUE_NAME)
 export class PriceProcessor extends WorkerHost {
   private logger = new Logger(PriceProcessor.name);
   private readonly pendingBatches = new Map<string, PendingBatch>();
@@ -64,14 +67,14 @@ export class PriceProcessor extends WorkerHost {
 
     const requestIds = batch.requests.map((request) => request.requestId);
     try {
-      const priceMap = await this.priceService.fetchAndSaveBatch([coinId]);
-      const price = priceMap[coinId];
+      const results = await this.priceService.fetchAndSaveBatch([coinId]);
+      const price = results.find((r) => r.coinId === coinId)?.price;
 
       for (const requestId of requestIds) {
         if (price === undefined) {
           this.eventEmitter.emit(
             `price.result.${requestId}`,
-            new Error('Price not found'),
+            new PriceNotFoundException(coinId),
           );
           continue;
         }
@@ -86,7 +89,10 @@ export class PriceProcessor extends WorkerHost {
       for (const requestId of requestIds) {
         this.eventEmitter.emit(
           `price.result.${requestId}`,
-          new Error('External Price Service is currently unavailable'),
+          error instanceof ProviderUnavailableException ||
+            error instanceof PriceNotFoundException
+            ? error
+            : new ProviderUnavailableException(),
         );
       }
     }

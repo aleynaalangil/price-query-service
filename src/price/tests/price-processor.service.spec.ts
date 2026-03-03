@@ -1,14 +1,17 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Job } from 'bullmq';
+import { PriceResult } from '../dto/price-result.dto';
 import { PriceProcessor } from '../price-processor.service';
 import { PriceService } from '../price.service';
+import { PriceNotFoundException } from '../../common/exceptions/price-not-found.exception';
+import { ProviderUnavailableException } from '../../common/exceptions/provider-unavailable.exception';
 
 describe('PriceProcessor', () => {
   let service: PriceProcessor;
   let mockEventEmitter: { emit: jest.Mock<void, [string, number | Error]> };
   let mockPriceService: {
-    fetchAndSaveBatch: jest.Mock<Promise<Record<string, number>>, [string[]]>;
+    fetchAndSaveBatch: jest.Mock<Promise<PriceResult[]>, [string[]]>;
   };
 
   const createJob = (
@@ -52,7 +55,9 @@ describe('PriceProcessor', () => {
   });
 
   it('holds requests below the threshold until the 5 second window ends', async () => {
-    mockPriceService.fetchAndSaveBatch.mockResolvedValue({ bitcoin: 50000 });
+    mockPriceService.fetchAndSaveBatch.mockResolvedValue([
+      new PriceResult('bitcoin', 50000),
+    ]);
 
     await service.process(createJob('bitcoin', 'request-1'));
     await service.process(createJob('bitcoin', 'request-2'));
@@ -83,7 +88,9 @@ describe('PriceProcessor', () => {
   });
 
   it('flushes immediately when the pending request threshold reaches 3', async () => {
-    mockPriceService.fetchAndSaveBatch.mockResolvedValue({ bitcoin: 50000 });
+    mockPriceService.fetchAndSaveBatch.mockResolvedValue([
+      new PriceResult('bitcoin', 50000),
+    ]);
 
     await service.process(createJob('bitcoin', 'request-1'));
     await service.process(createJob('bitcoin', 'request-2'));
@@ -116,9 +123,9 @@ describe('PriceProcessor', () => {
   });
 
   it('keeps batches isolated by coin when one coin reaches the threshold', async () => {
-    mockPriceService.fetchAndSaveBatch.mockImplementation(async ([coinId]) => ({
-      [coinId]: coinId === 'bitcoin' ? 50000 : 3000,
-    }));
+    mockPriceService.fetchAndSaveBatch.mockImplementation(async ([coinId]) => [
+      new PriceResult(coinId, coinId === 'bitcoin' ? 50000 : 3000),
+    ]);
 
     await service.process(createJob('ethereum', 'eth-1'));
     await service.process(createJob('bitcoin', 'btc-1'));
@@ -162,6 +169,32 @@ describe('PriceProcessor', () => {
       5,
       'price.result.eth-2',
       3000,
+    );
+  });
+
+  it('emits PriceNotFoundException when price is undefined', async () => {
+    mockPriceService.fetchAndSaveBatch.mockResolvedValue([]);
+
+    await service.process(createJob('unknown-coin', 'request-1'));
+    await jest.advanceTimersByTimeAsync(5000);
+
+    expect(mockEventEmitter.emit).toHaveBeenCalledWith(
+      'price.result.request-1',
+      expect.any(PriceNotFoundException),
+    );
+  });
+
+  it('emits ProviderUnavailableException when service throws', async () => {
+    mockPriceService.fetchAndSaveBatch.mockRejectedValue(
+      new Error('Network error'),
+    );
+
+    await service.process(createJob('bitcoin', 'request-1'));
+    await jest.advanceTimersByTimeAsync(5000);
+
+    expect(mockEventEmitter.emit).toHaveBeenCalledWith(
+      'price.result.request-1',
+      expect.any(ProviderUnavailableException),
     );
   });
 });

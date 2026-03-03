@@ -36,7 +36,7 @@ describe('Price API (e2e)', () => {
   it('returns the current price payload', async () => {
     priceQueueService.getPrice.mockResolvedValue(50000);
 
-    const body = await controller.getPrice('bitcoin');
+    const body = await controller.getPrice({ coinId: 'bitcoin' });
     expect(body).toMatchObject({
       coinId: 'bitcoin',
       price: 50000,
@@ -57,7 +57,7 @@ describe('Price API (e2e)', () => {
     ];
     priceService.findHistory.mockResolvedValue(history);
 
-    const body = await controller.getHistory('bitcoin');
+    const body = await controller.getHistory({ coinId: 'bitcoin' });
     expect(body.coinId).toBe('bitcoin');
     expect(body.history).toHaveLength(1);
     expect(priceService.findHistory).toHaveBeenCalledWith('bitcoin');

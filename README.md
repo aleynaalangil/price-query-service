@@ -3,27 +3,12 @@
 A NestJS service for a local technical exercise that provides current and historical cryptocurrency prices, with request
 batching and threshold-driven fetching.
 
-## Key Features
-
-- **Request Batching:** Groups multiple requests for the same asset within a configurable time window (default 5s) to
-  minimize API calls.
-- **Threshold Triggering:** Executes a fetch immediately once a certain number of concurrent requests (default 3) is
-  reached.
-- **Data Persistence:** Stores price records in PostgreSQL for historical querying.
-
-## API Endpoints
-
-- `GET /v1/price/:coinId` - Current price of a cryptocurrency (e.g., `bitcoin`)
-- `GET /v1/price/:coinId/history` - Historical price records
-- `GET /docs` - Swagger API Documentation
-
 ## Quick Start
 
 ### Local Development
 
 ```bash
 npm install
-npm run start:prod
 ```
 
 ### Docker
@@ -32,41 +17,53 @@ npm run start:prod
 docker-compose up --build
 ```
 
-## Testing
+## Architecture
 
-```bash
-npm run test
+### Request Batching Flow (core pattern)
 
-npm run test:e2e
-```
+1. **PriceController** receives `GET /v1/price/:coinId` (JWT-protected)
+2. **PriceQueueService** creates a UUID request ID, enqueues a BullMQ job, and returns a Promise that resolves when an
+   event `price.result.{requestId}` fires
+3. **PriceProcessor** (BullMQ worker) collects jobs into per-coin batches with two flush triggers:
 
-The unit tests cover the batching rules directly:
+- **Timeout**: 5-second window from first request in batch
+- **Threshold**: 3 pending requests trigger immediate flush
 
-- same-coin requests wait up to 5 seconds from the first request
-- pending requests for the same coin resolve together
-- 3 pending requests for the same coin trigger an immediate fetch
-- different coins stay isolated from each other
+4. On flush, calls **PriceService.fetchAndSaveBatch()** which deduplicates coin IDs, fetches from provider, saves to DB
+5. Results are delivered back via **EventEmitter2** events per request ID
 
-The `test:e2e` script runs lightweight integration checks against compiled Nest testing modules.
+### Module Structure
 
-### Manual Localhost Check
+- **AuthModule** — JWT token generation (`GET /v1/auth/token`) and `JwtAuthGuard` for route protection
+- **PriceModule** — All price domain logic: controller, queue service, processor, service, repository, provider
+- **AppModule** — Wires global config (ConfigModule, TypeORM, BullMQ, EventEmitter, Scheduler)
 
-To hit the real dockerized service run the batching check script from the project root:
+### Key Abstractions
 
-```bash
-python3 scripts/check_local_batching.py
-```
+- **IPriceProvider** interface (`price/interfaces/price-provider.interface.ts`) — pluggable price data source, currently
+  implemented by `CoinGeckoProvider`
+- **PriceRepository** — TypeORM wrapper over `PriceRecord` entity
+- **PriceRecord entity** — columns: id, symbol, price (decimal 18,8), lastUpdate
 
-What it does:
+### API Endpoints
 
-- sends 2 concurrent requests to `GET /v1/price/bitcoin` and prints the total duration
-- sends 3 concurrent requests to the same endpoint and prints the total duration
-- shows the returned prices so you can confirm the batched responses match
+- `GET /v1/auth/token` — Returns JWT access token
+- `GET /v1/price/:coinId` — Current price (JWT required)
+- `GET /v1/price/:coinId/history` — Price history (JWT required)
+- `GET /docs` — Swagger UI
 
-What to expect:
+## Infrastructure
 
-- 2 concurrent requests should complete in about 5 seconds
-- 3 concurrent requests should complete in under 5 seconds because the threshold triggers early
+- **PostgreSQL**: TypeORM with `synchronize: true` (auto-creates schema from entities)
+- **Redis**: BullMQ queue backend, queue name is `price-queries`
+- **Environment**: configured via `.env` file (see `.env.example`), loaded through `@nestjs/config`
+
+## Testing Patterns
+
+- Unit tests live in `src/price/tests/*.spec.ts`
+- PriceProcessor tests use `jest.useFakeTimers()` to control batching timeouts
+- E2E tests in `test/*.e2e-spec.ts` mock services and test HTTP response shapes via supertest
+- `scripts/check_local_batching.py` — manual integration test against running Docker stack
 
 ## License
 
