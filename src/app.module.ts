@@ -32,6 +32,7 @@ import { BullModule } from '@nestjs/bullmq';
         username: config.get('DATABASE_USER', 'aley'),
         password: config.get('DATABASE_PASSWORD', 'supersecretpassword'),
         database: config.get('DATABASE_NAME', 'nest_db'),
+        synchronize: true, // only for test purposes
         autoLoadEntities: true,
       }),
     }),
